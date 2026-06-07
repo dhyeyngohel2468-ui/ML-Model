@@ -25,7 +25,13 @@ Classifies handwritten digit images (0–9) using a CNN trained on the MNIST dat
 
 **Classes:** Digits 0 through 9
 
-**Model trained on:** 60,000 handwritten digit images
+**Results:**
+| Metric | Value |
+|---|---|
+| Model trained on | 60,000 handwritten digit images |
+| Training Accuracy | ~99.04% |
+| Test Accuracy | ~99.25% |
+| Epochs | 10 |
 
 ---
 
