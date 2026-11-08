@@ -1,93 +1,149 @@
+
 import os
-import cv2
+from pathlib import Path
+
 import numpy as np
+import tensorflow as tf
 from keras.datasets import cifar10
-from keras.utils import to_categorical
 from keras.models import Sequential
-from keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
-from keras.models import load_model
+from keras.layers import (
+    Conv2D,
+    MaxPooling2D,
+    Flatten,
+    Dense,
+    Dropout
+)
+from keras.utils import to_categorical
 
-def preprocess_image(image_path):
-    image = cv2.imread(image_path)
-    image = cv2.resize(image, (32, 32))
-    image = image.astype('float32') / 255.0
-    image = np.reshape(image, (1, 32, 32, 3))
-    return image
 
-def train_model():
-    (train_images, train_labels), (test_images, test_labels) = cifar10.load_data()
 
-    train_images = train_images.astype('float32') / 255
-    test_images = test_images.astype('float32') / 255
 
-    train_labels = to_categorical(train_labels)
-    test_labels = to_categorical(test_labels)
+BASE_DIR = Path(__file__).resolve().parent
+MODEL_DIR = BASE_DIR / "models"
+MODEL_PATH = MODEL_DIR / "cifar10_model.keras"
 
-    model = Sequential()
-    model.add(Conv2D(32, (3, 3), activation='relu', input_shape=(32, 32, 3)))
-    model.add(MaxPooling2D((2, 2)))
-    model.add(Conv2D(64, (3, 3), activation='relu'))
-    model.add(MaxPooling2D((2, 2)))
-    model.add(Conv2D(64, (3, 3), activation='relu'))
-    model.add(Flatten())
-    model.add(Dense(128, activation='relu'))
-    model.add(Dropout(0.5))
-    model.add(Dense(10, activation='softmax'))
+EPOCHS = 10
+BATCH_SIZE = 64
+NUM_CLASSES = 10
 
-    model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+CLASS_NAMES = [
+    "Airplane",
+    "Automobile",
+    "Bird",
+    "Cat",
+    "Deer",
+    "Dog",
+    "Frog",
+    "Horse",
+    "Ship",
+    "Truck"
+]
 
-    model.fit(train_images, train_labels, epochs=10, batch_size=64, validation_split=0.2)
 
-    test_loss, test_acc = model.evaluate(test_images, test_labels)
-    print("Test Accuracy:", test_acc)
 
-    model.save('cifar10_model.keras')
 
-    return model
+print("\nLoading CIFAR-10 dataset...")
 
-def classify_image(image_path, model):
-    input_image = preprocess_image(image_path)
-    prediction = model.predict(input_image)
-    predicted_label = np.argmax(prediction)
+(x_train, y_train), (x_test, y_test) = cifar10.load_data()
 
-    classes = {
-        0: 'Airplane',
-        1: 'Automobile',
-        2: 'Bird',
-        3: 'Cat',
-        4: 'Deer',
-        5: 'Dog',
-        6: 'Frog',
-        7: 'Horse',
-        8: 'Ship',
-        9: 'Truck'
-    }
+print("Training images:", x_train.shape)
+print("Testing images:", x_test.shape)
 
-    predicted_class = classes[predicted_label]
 
-    return predicted_class
 
-model_path = 'cifar10_model.keras'
-if not os.path.exists(model_path):
-    print("Model not found. Training a new model.")
-    model = train_model()
-else:
-    print("Loading the existing trained model.")
-    model = load_model(model_path)
 
-image_path = '/content/frog.jpeg'
+print("\nPreprocessing dataset...")
 
-if os.path.exists(image_path):
-    predicted_class = classify_image(image_path, model)
-    print(f'The input image is predicted to be a {predicted_class}.')
+x_train = x_train.astype("float32") / 255.0
+x_test = x_test.astype("float32") / 255.0
 
-    user_feedback = input("Was the prediction correct? (yes/no): ").lower()
+# One-hot encode labels
+y_train = to_categorical(y_train, NUM_CLASSES)
+y_test = to_categorical(y_test, NUM_CLASSES)
 
-    if user_feedback == 'no':
-        print("Retraining the model with the updated data.")
-        model = train_model()
 
-        predicted_class = classify_image(image_path, model)
-        print(f'After retraining, the input image is predicted to be a {predicted_class}.')
-else:
-    print(f"Error: Image file not found at {image_path}.")
+print("\nBuilding CNN model...")
+
+model = Sequential([
+    Conv2D(32, (3, 3), activation="relu", input_shape=(32, 32, 3)),
+
+    MaxPooling2D((2, 2)),
+
+    Conv2D(64,(3, 3), activation="relu"),
+
+    MaxPooling2D((2, 2)),
+
+    Conv2D(64, (3, 3), activation="relu"),
+
+    Flatten(),
+
+    Dense(128, activation="relu"),
+
+    Dropout(0.5),
+
+    Dense(NUM_CLASSES, activation="softmax")
+])
+
+
+
+model.compile(
+    optimizer="adam",
+    loss="categorical_crossentropy",
+    metrics=["accuracy"]
+)
+
+model.summary()
+
+
+print("\nStarting model training...")
+
+history = model.fit(
+    x_train,
+    y_train,
+    epochs=EPOCHS,
+    batch_size=BATCH_SIZE,
+    validation_split=0.2,
+    verbose=1
+)
+
+
+
+print("\nEvaluating model on test dataset...")
+
+test_loss, test_accuracy = model.evaluate(
+    x_test,
+    y_test,
+    verbose=1
+)
+
+print("\n========== MODEL RESULTS ==========")
+print(f"Test Loss: {test_loss:.4f}")
+print(f"Test Accuracy: {test_accuracy * 100:.2f}%")
+
+
+
+MODEL_DIR.mkdir(parents=True, exist_ok=True)
+
+model.save(MODEL_PATH)
+
+print("\nModel saved successfully!")
+print(f"Location: {MODEL_PATH}")
+
+
+
+print("\nTesting a sample prediction...")
+
+sample_image = np.expand_dims(x_test[0], axis=0)
+
+prediction = model.predict(sample_image, verbose=0)
+
+predicted_class = np.argmax(prediction[0])
+confidence = np.max(prediction[0]) * 100
+
+actual_class = np.argmax(y_test[0])
+
+print(f"Predicted Class: {CLASS_NAMES[predicted_class]}")
+print(f"Confidence: {confidence:.2f}%")
+print(f"Actual Class: {CLASS_NAMES[actual_class]}")
+
+print("\nTraining process completed!")
