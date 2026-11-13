@@ -105,7 +105,7 @@ Cifar-10/
 ### 1. Clone the Repository
 
 ```bash
-git clone <your-repository-url>
+git clone <https://github.com/dhyeyngohel2468-ui/ML-Model/tree/main/Image%20Recognition%20(CIFAR10)>
 cd Cifar-10
 ```
 
